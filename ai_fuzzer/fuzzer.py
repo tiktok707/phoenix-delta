@@ -112,7 +112,7 @@ class ExploitPayloadGenerator:
         if response:
             if response.get("device_restarted"):
                 # Device crashed — reinforce this pattern
-                mutation_rate = 0.01  // Keep most of it
+                mutation_rate = 0.01  # Keep most of it
                 # Extend the overflow slightly
                 overflow_extension = random.randint(16, 128)
                 mutated.extend(
@@ -164,7 +164,7 @@ class ExploitPayloadGenerator:
         ]
 
         # Crossover and mutate to create next generation
-        next_gen = list(survivors)  // Keep elites
+        next_gen = list(survivors)  # Keep elites
 
         while len(next_gen) < len(self.population):
             parent_a = random.choice(survivors)

