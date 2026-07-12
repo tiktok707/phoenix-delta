@@ -369,6 +369,7 @@ class PhoenixOrchestrator:
         app = web.Application()
 
         app.router.add_get("/api/status", self._handle_status)
+        app.router.add_get("/api/scan", self._handle_scan)
         app.router.add_post("/api/scan", self._handle_scan)
         app.router.add_post("/api/wipe", self._handle_wipe)
         app.router.add_post("/api/wipe/batch", self._handle_batch_wipe)
@@ -411,8 +412,11 @@ class PhoenixOrchestrator:
 
     async def _handle_scan(self, request):
         try:
-            data = await request.json()
-            subnet = data.get("subnet", "192.168.1.0/24")
+            if request.method == "POST":
+                data = await request.json()
+                subnet = data.get("subnet", "192.168.0.0/24")
+            else:
+                subnet = request.query.get("subnet", "192.168.0.0/24")
             devices = await self.scan_network(subnet)
             return web.json_response({
                 "devices_found": len(devices),
