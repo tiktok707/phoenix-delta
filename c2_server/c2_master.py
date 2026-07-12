@@ -90,7 +90,7 @@ class PhoenixOrchestrator:
 
         ips = []
         if os.name == "nt":
-            # Windows: use arp -a
+            # Windows: use arp -a to find live hosts
             proc = await asyncio.create_subprocess_shell(
                 "arp -a",
                 stdout=asyncio.subprocess.PIPE,
@@ -98,12 +98,21 @@ class PhoenixOrchestrator:
             )
             stdout, _ = await proc.communicate()
             import re
-            for line in stdout.decode().split("\n"):
-                match = re.search(r"(\d+\.\d+\.\d+\.\d+)", line)
+            output = stdout.decode("utf-8", errors="ignore")
+            # arp -a on Windows outputs IPs like: 192.168.0.100    aa-bb-cc-dd-ee-ff
+            ip_pattern = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})")
+            seen = set()
+            for line in output.split("\n"):
+                match = ip_pattern.search(line)
                 if match:
                     ip = match.group(1)
-                    if ip.startswith(subnet.split(".")[0]):
+                    # Skip broadcast, multicast, and gateway
+                    if ip.endswith(".255") or ip.endswith(".0"):
+                        continue
+                    if ip not in seen:
+                        seen.add(ip)
                         ips.append(ip)
+            log.info("[*] ARP scan found %d IPs", len(ips))
         else:
             # Linux: use nmap
             proc = await asyncio.create_subprocess_shell(
@@ -401,13 +410,17 @@ class PhoenixOrchestrator:
         })
 
     async def _handle_scan(self, request):
-        data = await request.json()
-        subnet = data.get("subnet", "192.168.1.0/24")
-        devices = await self.scan_network(subnet)
-        return web.json_response({
-            "devices_found": len(devices),
-            "devices": devices,
-        })
+        try:
+            data = await request.json()
+            subnet = data.get("subnet", "192.168.1.0/24")
+            devices = await self.scan_network(subnet)
+            return web.json_response({
+                "devices_found": len(devices),
+                "devices": devices,
+            })
+        except Exception as e:
+            log.error("[!] Scan error: %s", str(e))
+            return web.json_response({"error": str(e)}, status=500)
 
     async def _handle_wipe(self, request):
         data = await request.json()
