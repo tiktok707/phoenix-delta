@@ -82,20 +82,38 @@ class PhoenixOrchestrator:
 
     async def scan_network(self, subnet: str = "192.168.1.0/24") -> List[Dict]:
         """
-        Network discovery using nmap + mDNS probing.
+        Network discovery — auto-detects OS and uses nmap (Linux) or
+        pure Python ARP scan (Windows).
         Returns list of discovered devices with IP, MAC, open ports.
         """
         log.info("[*] Scanning network: %s", subnet)
 
-        proc = await asyncio.create_subprocess_shell(
-            f"nmap -sn {subnet} --open -oG - 2>/dev/null | "
-            f"grep 'Up' | awk '{{print $2}}'",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        stdout, _ = await proc.communicate()
-
-        ips = [ip.strip() for ip in stdout.decode().split("\n") if ip.strip()]
+        ips = []
+        if os.name == "nt":
+            # Windows: use arp -a
+            proc = await asyncio.create_subprocess_shell(
+                "arp -a",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, _ = await proc.communicate()
+            import re
+            for line in stdout.decode().split("\n"):
+                match = re.search(r"(\d+\.\d+\.\d+\.\d+)", line)
+                if match:
+                    ip = match.group(1)
+                    if ip.startswith(subnet.split(".")[0]):
+                        ips.append(ip)
+        else:
+            # Linux: use nmap
+            proc = await asyncio.create_subprocess_shell(
+                f"nmap -sn {subnet} --open -oG - 2>/dev/null | "
+                f"grep 'Up' | awk '{{print $2}}'",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, _ = await proc.communicate()
+            ips = [ip.strip() for ip in stdout.decode().split("\n") if ip.strip()]
 
         devices = []
         for ip in ips:
@@ -115,39 +133,57 @@ class PhoenixOrchestrator:
         return devices
 
     async def _fingerprint_device(self, ip: str) -> Optional[Dict]:
-        """Fingerprint a device via nmap service detection."""
-        proc = await asyncio.create_subprocess_shell(
-            f"nmap -sV -O --top-ports 100 {ip} -oX - 2>/dev/null | "
-            f"grep -E '(osmatch|port|service)' | head -20",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=15)
-        output = stdout.decode()
+        """Fingerprint a device — works on both Windows and Linux."""
+        if os.name == "nt":
+            # Windows: basic ping + get hostname
+            proc = await asyncio.create_subprocess_shell(
+                f"ping -n 1 -w 1000 {ip}",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=5)
+            if proc.returncode != 0:
+                return None
+            return {
+                "ip": ip,
+                "hostname": ip,
+                "open_ports": [],
+                "fingerprint": "alive",
+            }
+        else:
+            # Linux: nmap fingerprint
+            proc = await asyncio.create_subprocess_shell(
+                f"nmap -sV -O --top-ports 100 {ip} -oX - 2>/dev/null | "
+                f"grep -E '(osmatch|port|service)' | head -20",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=15)
+            output = stdout.decode()
 
-        if not output:
-            return None
+            if not output:
+                return None
 
-        open_ports = []
-        fingerprint = "unknown"
-        hostname = ip
+            open_ports = []
+            fingerprint = "unknown"
+            hostname = ip
 
-        for line in output.split("\n"):
-            if "portid=" in line:
-                port = line.split('portid="')[1].split('"')[0] if 'portid="' in line else ""
-                if port:
-                    open_ports.append(port)
-            if "name=" in line and 'name="' in line:
-                hostname = line.split('name="')[1].split('"')[0]
-            if "name=" in line and "accuracy" in line:
-                fingerprint = line.split('name="')[1].split('"')[0]
+            for line in output.split("\n"):
+                if "portid=" in line:
+                    port = line.split('portid="')[1].split('"')[0] if 'portid="' in line else ""
+                    if port:
+                        open_ports.append(port)
+                if "name=" in line and 'name="' in line:
+                    hostname = line.split('name="')[1].split('"')[0]
+                if "name=" in line and "accuracy" in line:
+                    fingerprint = line.split('name="')[1].split('"')[0]
 
-        return {
-            "ip": ip,
-            "hostname": hostname,
-            "open_ports": open_ports,
-            "fingerprint": fingerprint,
-        }
+            return {
+                "ip": ip,
+                "hostname": hostname,
+                "open_ports": open_ports,
+                "fingerprint": fingerprint,
+            }
 
     # ─── Target Enrichment ────────────────────────────────────────────
 
