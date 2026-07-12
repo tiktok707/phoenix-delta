@@ -18,6 +18,7 @@ class TargetsDB:
         self.db: Optional[aiosqlite.Connection] = None
 
     async def connect(self):
+        os.makedirs(os.path.dirname(self.db_path) or ".", exist_ok=True)
         self.db = await aiosqlite.connect(self.db_path)
         await self.db.execute("PRAGMA journal_mode=WAL")
         await self._create_tables()
