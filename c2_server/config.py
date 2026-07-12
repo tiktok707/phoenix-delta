@@ -56,10 +56,10 @@ class BluetoothConfig:
 
 @dataclass
 class FirmwareConfig:
-    abl_payload_path: str = "/app/payloads/hijacked_abl.img"
+    abl_payload_path: str = os.environ.get("ABL_PAYLOAD", os.path.join(os.path.dirname(os.path.dirname(__file__)), "payloads", "hijacked_abl.img"))
     edl_interface: str = os.environ.get("EDL_INTERFACE", "usb")
     qfuse_path: str = os.environ.get("QFUSE_PATH", "qfuse")
-    downgrade_kernel_path: str = "/app/payloads/downgrade_kernel.img"
+    downgrade_kernel_path: str = os.environ.get("DOWNGRADE_KERNEL", os.path.join(os.path.dirname(os.path.dirname(__file__)), "payloads", "downgrade_kernel.img"))
     secureboot_bypass_enabled: bool = True
     max_partition_overwrite_mb: int = 512
 
@@ -72,7 +72,7 @@ class C2Config:
     ssl_cert_path: str = os.environ.get("SSL_CERT", "/app/certs/server.crt")
     ssl_key_path: str = os.environ.get("SSL_KEY", "/app/certs/server.key")
     use_ssl: bool = os.environ.get("C2_SSL", "true").lower() == "true"
-    db_path: str = os.environ.get("PHOENIX_DB", "/app/db/targets.db")
+    db_path: str = os.environ.get("PHOENIX_DB", os.path.join(os.path.dirname(os.path.dirname(__file__)), "db", "targets.db"))
     log_level: str = os.environ.get("LOG_LEVEL", "INFO")
     max_concurrent_wipes: int = int(os.environ.get("MAX_CONCURRENT_WIPES", "10"))
     wipe_cooldown_sec: float = float(os.environ.get("WIPE_COOLDOWN", "0.5"))
